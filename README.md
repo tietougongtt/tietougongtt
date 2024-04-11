@@ -1,10 +1,4 @@
 - 👋 Hi, I’m @tietougongtt
-- 👀 I’m interested in ...
-- 🌱 I’m currently learning ...
-- 💞️ I’m looking to collaborate on ...
-- 📫 How to reach me ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
 
 <!---
 tietougongtt/tietougongtt is a ✨ special ✨ repository because its `README.md` (this file) appears on your GitHub profile.
@@ -72,3 +66,93 @@ contract ArtMarketplace {
         return (art.owner, art.ipfsHash, art.story);
     }
 }
+
+构思2：为了增加创作形式的多样性，并让创作者的作品成为可编程IP，我们可以结合智能合约和NFT技术，使创作者能够将各种形式的创作内容转化为NFT，并添加一些保护措施来确保创作者的利益。以下是一个示例合约，结合了多样化的创作形式和保护措施：
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+
+contract MyContentMarketplace is ERC721Enumerable, Ownable {
+    uint256 private _tokenIdCounter;
+
+    // 存储NFT的创作内容
+    mapping(uint256 => string) public tokenContent;
+
+    // 存储NFT的创作者地址
+    mapping(uint256 => address) public tokenCreators;
+
+    // 存储NFT的销售价格
+    mapping(uint256 => uint256) public tokenPrices;
+
+    // 存储NFT的授权地址
+    mapping(uint256 => address) public tokenApprovals;
+
+    // 事件用于记录创作内容上传和销售
+    event ContentUploaded(uint256 indexed tokenId, string content, address indexed creator);
+    event TokenListed(uint256 indexed tokenId, uint256 price);
+    event TokenSold(uint256 indexed tokenId, address indexed buyer, uint256 price);
+
+    constructor() ERC721("MyNFT", "MNFT") {}
+
+    // 上传创作内容，并生成对应的NFT
+    function uploadContent(string memory content) public returns (uint256) {
+        require(bytes(content).length > 0, "Content cannot be empty");
+        _tokenIdCounter++;
+        uint256 newTokenId = _tokenIdCounter;
+        _mint(msg.sender, newTokenId);
+        tokenContent[newTokenId] = content;
+        tokenCreators[newTokenId] = msg.sender;
+        emit ContentUploaded(newTokenId, content, msg.sender);
+        return newTokenId;
+    }
+
+    // 获取NFT的创作内容
+    function getContent(uint256 tokenId) public view returns (string memory) {
+        return tokenContent[tokenId];
+    }
+
+    // 设置NFT的销售价格
+    function setPrice(uint256 tokenId, uint256 price) public {
+        require(_exists(tokenId), "Token does not exist");
+        require(ownerOf(tokenId) == msg.sender, "Only token owner can set price");
+        tokenPrices[tokenId] = price;
+        emit TokenListed(tokenId, price);
+    }
+
+    // 购买NFT
+    function buyToken(uint256 tokenId) public payable {
+        require(_exists(tokenId), "Token does not exist");
+        require(tokenPrices[tokenId] > 0, "Token is not listed for sale");
+        require(msg.value >= tokenPrices[tokenId], "Insufficient funds");
+        address tokenOwner = ownerOf(tokenId);
+        tokenApprovals[tokenId] = msg.sender;
+        safeTransferFrom(tokenOwner, msg.sender, tokenId);
+        uint256 price = tokenPrices[tokenId];
+        tokenPrices[tokenId] = 0;
+        payable(tokenOwner).transfer(price);
+        emit TokenSold(tokenId, msg.sender, price);
+    }
+
+    // 撤销NFT的销售
+    function cancelSale(uint256 tokenId) public {
+        require(_exists(tokenId), "Token does not exist");
+        require(ownerOf(tokenId) == msg.sender, "Only token owner can cancel sale");
+        tokenPrices[tokenId] = 0;
+        tokenApprovals[tokenId] = address(0);
+        emit TokenListed(tokenId, 0);
+    }
+
+    // 提取合约余额，只有合约所有者可调用
+    function withdrawContractBalance() public onlyOwner {
+        uint256 contractBalance = address(this).balance;
+        require(contractBalance > 0, "Contract has no balance to withdraw");
+        payable(owner()).transfer(contractBalance);
+    }
+}
+```
+
+在这个合约中，创作者可以上传各种形式的创作内容，并将其转化为NFT，这样他们就能够保护自己的作品并在市场上销售。同时，通过设置NFT的销售价格和撤销销售等功能，创作者能够灵活地管理自己的作品。
